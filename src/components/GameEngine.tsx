@@ -19,10 +19,10 @@ const GameEngine: React.FC = () => {
     const map = [
       [1,1,1,1,1,1,1,1],
       [1,0,0,0,0,0,0,1],
-      [1,0,1,0,0,1,0,1],
       [1,0,0,0,0,0,0,1],
-      [1,0,1,0,0,1,0,1],
-      [1,0,1,0,0,1,0,1],
+      [1,0,0,0,0,0,0,1],
+      [1,0,0,0,0,1,0,1],
+      [1,0,0,0,0,0,0,1],
       [1,0,0,0,0,0,0,1],
       [1,1,1,1,1,1,1,1],
     ];
@@ -30,6 +30,9 @@ const GameEngine: React.FC = () => {
     let playerX = 1.5;
     let playerY = 1.5;
     let playerAngle = 0;
+
+    const moveSpeed = 0.1;
+    const rotateSpeed = 0.1;
 
     function isValidPosition(x: number, y: number): boolean {
       const cellX = Math.floor(x);
@@ -95,7 +98,7 @@ const GameEngine: React.FC = () => {
         // Draw 3D projection
         const wallHeight = canvas!.height / distance;
         const wallTop = (canvas!.height - wallHeight) / 2;
-        ctx!.fillStyle = `rgb(0, ${255 - distance * 20}, 0)`;
+        ctx!.fillStyle = `rgb(20, 30, ${180 - distance * 15})`;
         ctx!.fillRect(i, wallTop, 1, wallHeight);
       }
     }
@@ -109,44 +112,77 @@ const GameEngine: React.FC = () => {
 
     gameLoop();
 
-    // Handle keyboard input
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const moveSpeed = 0.1;
-      const rotateSpeed = 0.1;
+    function movePlayer(forward: boolean, strafe: boolean = false) {
+      const angle = strafe ? playerAngle + Math.PI / 2 : playerAngle;
+      const direction = forward ? 1 : -1;
+      const newX = playerX + Math.cos(angle) * moveSpeed * direction;
+      const newY = playerY + Math.sin(angle) * moveSpeed * direction;
 
-      let newX = playerX;
-      let newY = playerY;
-
-      switch(e.key) {
-        case 'ArrowUp':
-          newX = playerX + Math.cos(playerAngle) * moveSpeed;
-          newY = playerY + Math.sin(playerAngle) * moveSpeed;
-          break;
-        case 'ArrowDown':
-          newX = playerX - Math.cos(playerAngle) * moveSpeed;
-          newY = playerY - Math.sin(playerAngle) * moveSpeed;
-          break;
-        case 'ArrowLeft':
-          playerAngle -= rotateSpeed;
-          return; // No need to check collision for rotation
-        case 'ArrowRight':
-          playerAngle += rotateSpeed;
-          return; // No need to check collision for rotation
-      }
-
-      // Check collision and update position if valid
       if (isValidPosition(newX, playerY)) {
         playerX = newX;
       }
       if (isValidPosition(playerX, newY)) {
         playerY = newY;
       }
+    }
+
+    function rotatePlayer(right: boolean) {
+      playerAngle += right ? rotateSpeed : -rotateSpeed;
+    }
+
+    // Handle keyboard input
+    const handleKeyDown = (e: KeyboardEvent) => {
+      switch(e.key) {
+        case 'ArrowUp':
+          movePlayer(true);
+          break;
+        case 'ArrowDown':
+          movePlayer(false);
+          break;
+        case 'ArrowLeft':
+          rotatePlayer(false);
+          break;
+        case 'ArrowRight':
+          rotatePlayer(true);
+          break;
+      }
+    };
+
+    // Touch controls
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const touchX = e.touches[0].clientX;
+      const touchY = e.touches[0].clientY;
+      const deltaX = touchX - touchStartX;
+      const deltaY = touchY - touchStartY;
+
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        // Horizontal movement - rotate
+        rotatePlayer(deltaX > 0);
+      } else {
+        // Vertical movement - move forward/backward
+        movePlayer(deltaY < 0);
+      }
+
+      touchStartX = touchX;
+      touchStartY = touchY;
     };
 
     window.addEventListener('keydown', handleKeyDown);
+    canvas.addEventListener('touchstart', handleTouchStart);
+    canvas.addEventListener('touchmove', handleTouchMove);
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
+      canvas.removeEventListener('touchstart', handleTouchStart);
+      canvas.removeEventListener('touchmove', handleTouchMove);
     };
   }, []);
 
